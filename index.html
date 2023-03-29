@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Nachbau von Moodle</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+        
+        <script>
+            
+            function loadVideoList() {
+                var select = document.getElementById("videos");
+                if (Array.from(select.children).find(x => x.tagName == "OPTION") == null) {
+                
+                    var xmlHttpRequest = new XMLHttpRequest();
+                    xmlHttpRequest.onload = function() {
+                        var answer = JSON.parse(this.responseText);
+                        answer.forEach((element) => {
+                            var opt = document.createElement("option");
+                            opt.innerHTML = element;
+                            opt.value = element;
+                            select.appendChild(opt);
+                        });
+                    };
+                    xmlHttpRequest.open("GET", "/getVideoList", true);
+                    xmlHttpRequest.send();
+                
+                    var submit = document.getElementById("WatchVideoSubmit");
+                    submit.disabled = false;
+                }  
+            };
+            
+        </script>
+    </head>
+    
+    <body>
+        <header><h1>Moodle Nachbau V1</h1></header>
+        <h2>Upload</h2>
+        <form method="POST" action="/" enctype="multipart/form-data">
+            <input type="file" accept="video/*" name="UploadFile"/>
+            <input type="submit" value="Upload" />
+        </form><br><br>
+        <h2>Anschauen</h2>
+        <form method="GET" action="/watch" enctype="multipart/form-data">
+            <select name="choice" id="videos" onclick="loadVideoList()">
+                
+            </select>
+            <input type="submit" value="Watch a video" id="WatchVideoSubmit" disabled/>
+        </form>
+    </body>
+</html>

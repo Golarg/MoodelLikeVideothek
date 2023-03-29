@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Videoplayer</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>
+        <video id="videoPlayer" width="500" controls muted="muted" autoplay>
+            <source id="source" src="/video" type="video/mp4" />
+        </video><br>
+        <textarea id="Chat" readonly></textarea><br>
+        <textarea id="writeMessage"></textarea>
+        <button onclick="sendMessage()">Send</button>
+        
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            const socket = io();
+            const videoPlayer = document.getElementById("videoPlayer");
+            const source = document.getElementById("source");
+            src = source.src.substring(source.src.lastIndexOf('=')+1, source.src.length - 3) + "txt";
+            const chat = document.getElementById("Chat");
+            socket.emit("createRoom", src.substring(0, src.length - 4));
+            var time = -1;
+            videoPlayer.ontimeupdate = (event) => {
+                var intPlayedTime = Math.floor(videoPlayer.currentTime);
+                if(intPlayedTime == time)
+                    return;
+                if(intPlayedTime - time > 1 || intPlayedTime - time < 1) {
+                   time = intPlayedTime;
+                   chat.value = "";
+                   var xmlHttpRequest = new XMLHttpRequest();
+                    xmlHttpRequest.onload = function() {
+                        var messages = JSON.parse(this.responseText);
+                        messages.forEach((element) => {
+                            writeToChat(element + "\n");
+                        });
+                    };
+                    xmlHttpRequest.open("GET", "/getAllChatMessages?time=" + intPlayedTime + "&video=" + src, true);
+                    xmlHttpRequest.send();
+                    return;
+                }
+                time = intPlayedTime;
+                   var xmlHttpRequest = new XMLHttpRequest();
+                    xmlHttpRequest.onload = function() {
+                        var messages = JSON.parse(this.responseText);
+                        messages.forEach((element) => {
+                            writeToChat(element + "\n");
+                        });
+                    };
+                    xmlHttpRequest.open("GET", "/getChatMessages?time=" + intPlayedTime + "&video=" + src, true);
+                    xmlHttpRequest.send();
+            };
+            
+            //multiline msg not saved right
+            function sendMessage() {
+                const message = document.getElementById("writeMessage");
+                var playedTime = Math.floor(videoPlayer.currentTime);
+                var h = Math.floor(playedTime / 3600);
+                var m = Math.floor((playedTime / 60)) % 60;
+                var s = playedTime % 60;
+                h = Math.floor(h/10) == 0 ? "0" + h : "" + h;
+                m = Math.floor(m/10) == 0 ? "0" + m : "" + m;
+                s = Math.floor(s/10) == 0 ? "0" + s : "" + s;
+                const msg = h + ":" + m + ":" + s + " " + message.value + "\n";
+                writeToChat(msg);
+                var xmlHttpRequest = new XMLHttpRequest();
+                xmlHttpRequest.onload = function() {
+                    message.value = "";
+                };
+                xmlHttpRequest.open("POST", "/sendChatMessage?msg=" + msg + "&video=" + src, true);
+                xmlHttpRequest.send();
+                socket.emit("chat", msg);
+            }
+            
+            socket.on("chat", (arg) => {
+                var h = parseInt(arg.substring(0, 2));
+                var m = parseInt(arg.substring(3, 5));
+                var s = parseInt(arg.substring(6, 8));
+                if((h*3600+m*60+s) <= Math.floor(videoPlayer.currentTime)) {
+                    var chatMsgs = chat.value.split("\n");
+                    var result;
+                    for(let i = 0; i < chatMsgs.length; i++) {
+                        var hm = parseInt(chatMsgs[i].substring(0, 2));
+                        var mm = parseInt(chatMsgs[i].substring(3, 5));
+                        var sm = parseInt(chatMsgs[i].substring(6, 8));
+                        if(((h*3600) + (m*60) + (s)) < ((hm*3600) + (mm*60) + (sm)))
+                            break;
+                        result = i;
+                    }
+                    result = chatMsgs[result];
+                    var chatValue = chat.value;
+                    chatValue = chatValue.substring(0, chatValue.indexOf(result) + result.length + 1) + arg + chatValue.substring(chatValue.indexOf(result) + result.length + 1);
+                    chat.value = chatValue;
+                } 
+            });
+            
+            function writeToChat(msg) {
+                if(!chat.value.includes(msg))
+                    chat.value = chat.value + msg;
+            }
+        </script>
+        
+    </body>
+</html>
